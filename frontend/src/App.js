@@ -1,10 +1,11 @@
-import { IntegrationForm } from './integration-form';
+import { IntegrationForm } from './components/forms/IntegrationForm';
+import { PageContainer } from './components/layout/PageContainer';
 
 function App() {
   return (
-    <div>
+    <PageContainer>
       <IntegrationForm />
-    </div>
+    </PageContainer>
   );
 }
 

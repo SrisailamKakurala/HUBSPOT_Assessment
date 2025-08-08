@@ -5,7 +5,7 @@ from integrations.airtable import authorize_airtable, get_items_airtable, oauth2
 from integrations.notion import authorize_notion, get_items_notion, oauth2callback_notion, get_notion_credentials
 from integrations.hubspot import authorize_hubspot, get_hubspot_credentials, get_items_hubspot, oauth2callback_hubspot
 
-app = FastAPI()
+app = FastAPI(debug=True)
 
 origins = [
     "http://localhost:3000",  # React app address
@@ -18,6 +18,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def log_headers(request: Request, call_next):
+    print("Request Headers:", dict(request.headers))
+    response = await call_next(request)
+    return response
 
 @app.get('/')
 def read_root():
@@ -39,6 +45,7 @@ async def get_airtable_credentials_integration(user_id: str = Form(...), org_id:
 
 @app.post('/integrations/airtable/load')
 async def get_airtable_items(credentials: str = Form(...)):
+    print(credentials)
     return await get_items_airtable(credentials)
 
 
