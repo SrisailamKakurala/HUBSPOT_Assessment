@@ -3,26 +3,26 @@
 import datetime
 import json
 import secrets
-from fastapi import Request, HTTPException
-from fastapi.responses import HTMLResponse
-import httpx
+from fastapi import Request, HTTPException # type: ignore
+from fastapi.responses import HTMLResponse # type: ignore
+import httpx # type: ignore
 import asyncio
 import base64
 import hashlib
 
 import requests
 from integrations.integration_item import IntegrationItem
+from utils.env import ENV
 
 from redis_client import add_key_value_redis, get_value_redis, delete_key_redis
 
-# CLIENT_ID = 'XXX'
-# CLIENT_SECRET = 'XXX'
-CLIENT_ID = '329147ef-ac8b-4863-bced-77b7b195258f'
-CLIENT_SECRET = 'e59aec7edddef2edf4388ef611b151ab5fc85c61f828df909c147085e8ffb4f1'
-REDIRECT_URI = 'http://localhost:8000/integrations/airtable/oauth2callback'
-authorization_url = f'https://airtable.com/oauth2/v1/authorize?client_id={CLIENT_ID}&response_type=code&owner=user&redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fintegrations%2Fairtable%2Foauth2callback'
+
+CLIENT_ID = ENV.AIRTABLE_CLIENT_ID
+CLIENT_SECRET = ENV.AIRTABLE_CLIENT_SECRET
+REDIRECT_URI = ENV.AIRTABLE_REDIRECT_URI
 
 encoded_client_id_secret = base64.b64encode(f'{CLIENT_ID}:{CLIENT_SECRET}'.encode()).decode()
+authorization_url = f'https://airtable.com/oauth2/v1/authorize?client_id={CLIENT_ID}&response_type=code&owner=user&redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fintegrations%2Fairtable%2Foauth2callback'
 scope = 'data.records:read data.records:write data.recordComments:read data.recordComments:write schema.bases:read schema.bases:write'
 
 async def authorize_airtable(user_id, org_id):
@@ -119,7 +119,6 @@ def create_integration_item_metadata_object(
 
     return integration_item_metadata
 
-
 def fetch_items(
     access_token: str, url: str, aggregated_response: list, offset=None
 ) -> dict:
@@ -139,7 +138,6 @@ def fetch_items(
             fetch_items(access_token, url, aggregated_response, offset)
         else:
             return
-
 
 async def get_items_airtable(credentials) -> list[IntegrationItem]:
     credentials = json.loads(credentials)

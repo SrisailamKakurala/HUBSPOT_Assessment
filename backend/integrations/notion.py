@@ -2,22 +2,26 @@
 
 import json
 import secrets
-from fastapi import Request, HTTPException
-from fastapi.responses import HTMLResponse
-import httpx
+from fastapi import Request, HTTPException # type: ignore
+from fastapi.responses import HTMLResponse # type: ignore
+import httpx # type: ignore
 import asyncio
 import base64
 import requests
+import hashlib
+
 from integrations.integration_item import IntegrationItem
+from utils.env import ENV
 
 from redis_client import add_key_value_redis, get_value_redis, delete_key_redis
 
-CLIENT_ID = 'XXX'
-CLIENT_SECRET = 'XXX'
-encoded_client_id_secret = base64.b64encode(f'{CLIENT_ID}:{CLIENT_SECRET}'.encode()).decode()
+CLIENT_ID = ENV.NOTION_CLIENT_ID
+CLIENT_SECRET = ENV.NOTION_CLIENT_SECRET
+REDIRECT_URI = ENV.NOTION_REDIRECT_URI
 
-REDIRECT_URI = 'http://localhost:8000/integrations/notion/oauth2callback'
+encoded_client_id_secret = base64.b64encode(f'{CLIENT_ID}:{CLIENT_SECRET}'.encode()).decode()
 authorization_url = f'https://api.notion.com/v1/oauth/authorize?client_id={CLIENT_ID}&response_type=code&owner=user&redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fintegrations%2Fnotion%2Foauth2callback'
+scope = 'databases.read databases.write pages.read pages.write'
 
 async def authorize_notion(user_id, org_id):
     state_data = {
@@ -26,23 +30,36 @@ async def authorize_notion(user_id, org_id):
         'org_id': org_id
     }
     encoded_state = json.dumps(state_data)
-    await add_key_value_redis(f'notion_state:{org_id}:{user_id}', encoded_state, expire=600)
 
-    return f'{authorization_url}&state={encoded_state}'
+    code_verifier = secrets.token_urlsafe(32)
+    m = hashlib.sha256()
+    m.update(code_verifier.encode('utf-8'))
+    code_challenge = base64.urlsafe_b64encode(m.digest()).decode('utf-8').replace('=', '')
+
+    auth_url = f'{authorization_url}&state={encoded_state}&code_challenge={code_challenge}&code_challenge_method=S256&scope={scope}'
+    await asyncio.gather(
+        add_key_value_redis(f'hubspot_state:{org_id}:{user_id}', json.dumps(state_data), expire=600),
+        add_key_value_redis(f'hubspot_verifier:{org_id}:{user_id}', code_verifier, expire=600),
+    )
+
+    return auth_url
 
 async def oauth2callback_notion(request: Request):
     if request.query_params.get('error'):
         raise HTTPException(status_code=400, detail=request.query_params.get('error'))
     code = request.query_params.get('code')
     encoded_state = request.query_params.get('state')
-    state_data = json.loads(encoded_state)
+    state_data = json.loads(base64.urlsafe_b64decode(encoded_state).decode('utf-8'))
 
     original_state = state_data.get('state')
     user_id = state_data.get('user_id')
     org_id = state_data.get('org_id')
 
-    saved_state = await get_value_redis(f'notion_state:{org_id}:{user_id}')
-
+    saved_state, code_verifier = await asyncio.gather(
+        get_value_redis(f'notion_state:{org_id}:{user_id}'),
+        get_value_redis(f'notion_verifier:{org_id}:{user_id}'),
+    )
+    
     if not saved_state or original_state != json.loads(saved_state).get('state'):
         raise HTTPException(status_code=400, detail='State does not match.')
 
@@ -50,17 +67,20 @@ async def oauth2callback_notion(request: Request):
         response, _ = await asyncio.gather(
             client.post(
                 'https://api.notion.com/v1/oauth/token',
-                json={
+                data={
                     'grant_type': 'authorization_code',
                     'code': code,
-                    'redirect_uri': REDIRECT_URI
+                    'redirect_uri': REDIRECT_URI,
+                    'client_id': CLIENT_ID,
+                    'code_verifier': code_verifier.decode('utf-8'),
                 }, 
                 headers={
                     'Authorization': f'Basic {encoded_client_id_secret}',
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/x-www-form-urlencoded',
                 }
             ),
             delete_key_redis(f'notion_state:{org_id}:{user_id}'),
+            delete_key_redis(f'notion_verifier:{org_id}:{user_id}'),
         )
 
     await add_key_value_redis(f'notion_credentials:{org_id}:{user_id}', json.dumps(response.json()), expire=600)
