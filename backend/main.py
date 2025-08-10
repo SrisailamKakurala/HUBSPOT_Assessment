@@ -19,11 +19,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.middleware("http")
-async def log_headers(request: Request, call_next):
-    print("Request Headers:", dict(request.headers))
-    response = await call_next(request)
-    return response
 
 @app.get('/')
 def read_root():
@@ -45,7 +40,6 @@ async def get_airtable_credentials_integration(user_id: str = Form(...), org_id:
 
 @app.post('/integrations/airtable/load')
 async def get_airtable_items(credentials: str = Form(...)):
-    print(credentials)
     return await get_items_airtable(credentials)
 
 
@@ -79,6 +73,6 @@ async def oauth2callback_hubspot_integration(request: Request):
 async def get_hubspot_credentials_integration(user_id: str = Form(...), org_id: str = Form(...)):
     return await get_hubspot_credentials(user_id, org_id)
 
-@app.post('/integrations/hubspot/get_hubspot_items')
+@app.post('/integrations/hubspot/load')
 async def load_slack_data_integration(credentials: str = Form(...)):
     return await get_items_hubspot(credentials)

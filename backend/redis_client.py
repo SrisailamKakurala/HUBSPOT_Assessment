@@ -1,6 +1,6 @@
 from utils.env import ENV
 import redis.asyncio as redis
-from kombu.utils.url import safequote
+from kombu.utils.url import safequote # type: ignore
 
 print(ENV.REDIS_HOST)
 

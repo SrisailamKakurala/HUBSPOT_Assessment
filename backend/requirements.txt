@@ -118,6 +118,7 @@ pymongoarrow==0.7.0
 pymongocrypt==1.6.1
 pyparsing==3.0.9
 pyrsistent==0.19.3
+pytest==8.4.1
 python-dateutil==2.8.2
 python-dotenv==1.0.0
 python-jose==3.3.0
