@@ -10,7 +10,6 @@ A full-stack, production-ready template for integrating with third-party SaaS pl
 - **Secure Credential Storage**: Uses Redis with TTL for ephemeral token storage
 - **Clean, Scalable Architecture**: Separation of concerns, type hints, docstrings, and error handling
 - **Frontend-Backend Demo**: End-to-end OAuth flow with popup, token exchange, and data fetch
-- **Production-Ready Dockerization**: Dockerfile and docker-compose for local or cloud deployment
 
 ---
 
@@ -58,6 +57,8 @@ cp backend/.env.example backend/.env
 
 ```sh
 cd backend
+# make a venv and work on that [preferred]
+pip install -r requirements.txt
 docker-compose up -d # for starting the redis-instance [ensure docker engine is running]
 uvicorn main:app --reload
 ```
